@@ -194,7 +194,10 @@ class _ContentStoreImpl implements ContentStore {
         id: id,
         createdAt: DateTime.now(),
       ),
-      contentType: contentType.metadata,
+      contentType: EntityRef(
+        type: EntityType.contentType,
+        id: contentType.metadata.id,
+      ),
       fields: entry.fields,
     );
 
@@ -204,12 +207,19 @@ class _ContentStoreImpl implements ContentStore {
   }
 
   @override
-  Future<Entry> getEntry(String id) {
+  Future<Entry> getEntry(String id) async {
     _debugAssertInitialized();
 
-    return _backend
-        .getEntity(id, type: EntityType.entry)
-        .then((entity) => entity as Entry);
+    try {
+      return await _backend
+          .getEntity(id, type: EntityType.entry)
+          .then((entity) => entity as Entry);
+    } on StorageBackendException catch (e) {
+      if (e.code == StorageBackendErrorCode.notFound) {
+        throw ContentStoreException(ContentStoreErrorCode.notFound);
+      }
+      rethrow;
+    }
   }
 
   void _debugAssertInitialized() {

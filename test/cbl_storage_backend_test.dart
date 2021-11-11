@@ -25,13 +25,35 @@ void main() {
 
   tearDown(() => store.close());
 
-  test('create entry', () async {
-    final contentType = ContentTypeData(fields: {
-      'a': FieldSpec(type: FieldType.text),
-    });
-    await store.createContentType('a', contentType);
-    await store.createEntry('a', EntryData(fields: {'a': 'b'}));
+  test('create content type', () async {
+    final contentType = await store.createContentType(
+      'a',
+      ContentTypeData(fields: {'a': FieldSpec(type: FieldType.text)}),
+    );
 
-    await db.dump();
+    expect(await store.getContentType('a'), contentType);
+  });
+
+  test('delete content type', () async {
+    await store.createContentType(
+      'a',
+      ContentTypeData(fields: {'a': FieldSpec(type: FieldType.text)}),
+    );
+    await store.deleteContentType('a');
+
+    expect(
+      store.getContentType('a'),
+      throwsA(isA<ContentStoreException>()),
+    );
+  });
+
+  test('create entry', () async {
+    await store.createContentType(
+      'a',
+      ContentTypeData(fields: {'a': FieldSpec(type: FieldType.text)}),
+    );
+    final entry = await store.createEntry('a', EntryData(fields: {'a': 'a'}));
+
+    expect(await store.getEntry(entry.metadata.id), entry);
   });
 }
