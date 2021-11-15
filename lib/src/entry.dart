@@ -26,13 +26,13 @@ class EntryData {
 @immutable
 class Entry extends EntryData implements Entity {
   Entry({
-    required this.metadata,
+    required this.meta,
     required this.contentType,
     required Map<String, Object?> fields,
   }) : super(fields: fields);
 
   @override
-  final EntityMetadata metadata;
+  final EntityMetadata meta;
 
   final EntityRef contentType;
 
@@ -41,17 +41,17 @@ class Entry extends EntryData implements Entity {
       identical(this, other) ||
       other is Entry &&
           runtimeType == other.runtimeType &&
-          metadata == other.metadata &&
+          meta == other.meta &&
           contentType == other.contentType &&
           const DeepCollectionEquality().equals(fields, other.fields);
 
   @override
   int get hashCode =>
-      metadata.hashCode ^
+      meta.hashCode ^
       contentType.hashCode ^
       const DeepCollectionEquality().hash(fields);
 
   @override
-  String toString() => 'Entry(metadata: $metadata, contentType: $contentType, '
+  String toString() => 'Entry(meta: $meta, contentType: $contentType, '
       'fields: $fields)';
 }

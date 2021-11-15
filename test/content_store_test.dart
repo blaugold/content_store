@@ -19,12 +19,12 @@ void main() {
         fields: {'a': FieldSpec(type: FieldType.text)},
       ));
 
-      expect(contentType.metadata.type, EntityType.contentType);
+      expect(contentType.meta.type, EntityType.contentType);
       expect(
-        contentType.metadata.createdAt.millisecondsSinceEpoch,
+        contentType.meta.createdAt.millisecondsSinceEpoch,
         closeTo(DateTime.now().millisecondsSinceEpoch, 100),
       );
-      expect(contentType.metadata.updatedAt, isNull);
+      expect(contentType.meta.lastModifiedAt, isNull);
       expect(contentType.label, 'a');
       expect(contentType.fields['a'], isNotNull);
       expect(contentType.fields['a']!.type, FieldType.text);
@@ -48,7 +48,7 @@ void main() {
     test('returns existing content type', () async {
       final contentType = await store
           .createContentType(ContentTypeData(label: 'a', fields: {}));
-      expect(await store.getContentType(contentType.metadata.id), contentType);
+      expect(await store.getContentType(contentType.meta.id), contentType);
     });
 
     test('throws when content type does not exist', () async {
@@ -77,10 +77,10 @@ void main() {
     test('deletes an existing content type', () async {
       final contentType = await store
           .createContentType(ContentTypeData(label: 'a', fields: {}));
-      await store.deleteContentType(contentType.metadata.id);
+      await store.deleteContentType(contentType.meta.id);
 
       expect(
-        store.getContentType(contentType.metadata.id),
+        store.getContentType(contentType.meta.id),
         throwsA(isA<ContentStoreException>()),
       );
     });
@@ -89,14 +89,14 @@ void main() {
       final contentType = await store
           .createContentType(ContentTypeData(label: 'a', fields: {}));
       final entry = await store.createEntry(
-        contentType.metadata.id,
+        contentType.meta.id,
         EntryData(fields: {}),
       );
 
-      await store.deleteContentType(contentType.metadata.id);
+      await store.deleteContentType(contentType.meta.id);
 
       expect(
-        store.getEntry(entry.metadata.id),
+        store.getEntry(entry.meta.id),
         throwsA(isA<ContentStoreException>()),
       );
     });
@@ -114,17 +114,17 @@ void main() {
       ));
 
       final entry = await store.createEntry(
-        contentType.metadata.id,
+        contentType.meta.id,
         EntryData(fields: {'a': 'a'}),
       );
 
-      expect(entry.metadata.type, EntityType.entry);
+      expect(entry.meta.type, EntityType.entry);
       expect(
-        entry.metadata.createdAt.millisecondsSinceEpoch,
+        entry.meta.createdAt.millisecondsSinceEpoch,
         closeTo(DateTime.now().millisecondsSinceEpoch, 100),
       );
-      expect(entry.metadata.updatedAt, isNull);
-      expect(entry.contentType.id, contentType.metadata.id);
+      expect(entry.meta.lastModifiedAt, isNull);
+      expect(entry.contentType.id, contentType.meta.id);
       expect(entry.contentType.type, EntityType.contentType);
       expect(entry.fields, hasLength(1));
       expect(entry.fields['a'], 'a');
@@ -151,11 +151,11 @@ void main() {
       ));
 
       final entry = await store.createEntry(
-        contentType.metadata.id,
+        contentType.meta.id,
         EntryData(fields: {'a': 'a'}),
       );
 
-      expect(await store.getEntry(entry.metadata.id), entry);
+      expect(await store.getEntry(entry.meta.id), entry);
     });
 
     test('throws when entry does not exist', () async {

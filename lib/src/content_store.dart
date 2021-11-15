@@ -122,7 +122,7 @@ class _ContentStoreImpl implements ContentStore {
     _validateContentTypeData(contentType);
 
     final entity = ContentType(
-      metadata: EntityMetadata(
+      meta: EntityMetadata(
         type: EntityType.contentType,
         id: _createEntityId(),
         createdAt: DateTime.now(),
@@ -177,14 +177,14 @@ class _ContentStoreImpl implements ContentStore {
     final id = _createEntityId();
 
     final entity = Entry(
-      metadata: EntityMetadata(
+      meta: EntityMetadata(
         type: EntityType.entry,
         id: id,
         createdAt: DateTime.now(),
       ),
       contentType: EntityRef(
         type: EntityType.contentType,
-        id: contentType.metadata.id,
+        id: contentType.meta.id,
       ),
       fields: entry.fields,
     );

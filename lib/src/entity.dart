@@ -36,11 +36,11 @@ class EntityMetadata extends EntityRef {
     required EntityType type,
     required String id,
     required this.createdAt,
-    this.updatedAt,
+    this.lastModifiedAt,
   }) : super(type: type, id: id);
 
   final DateTime createdAt;
-  final DateTime? updatedAt;
+  final DateTime? lastModifiedAt;
 
   @override
   bool operator ==(Object other) =>
@@ -50,18 +50,21 @@ class EntityMetadata extends EntityRef {
           type == other.type &&
           id == other.id &&
           createdAt == other.createdAt &&
-          updatedAt == other.updatedAt;
+          lastModifiedAt == other.lastModifiedAt;
 
   @override
   int get hashCode =>
-      type.hashCode ^ id.hashCode ^ createdAt.hashCode ^ updatedAt.hashCode;
+      type.hashCode ^
+      id.hashCode ^
+      createdAt.hashCode ^
+      lastModifiedAt.hashCode;
 
   @override
   String toString() =>
       'EntityMetadata(type: $type, id: $id, createdAt: $createdAt, '
-      'updatedAt: $updatedAt)';
+      'lastModifiedAt: $lastModifiedAt)';
 }
 
 abstract class Entity {
-  EntityMetadata get metadata;
+  EntityMetadata get meta;
 }

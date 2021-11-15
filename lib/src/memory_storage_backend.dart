@@ -13,7 +13,7 @@ class MemoryStorageBackend extends StorageBackend {
 
   @override
   Future<void> saveEntity(Entity entity) async =>
-      _entities[entity.metadata.type]![entity.metadata.id] = entity;
+      _entities[entity.meta.type]![entity.meta.id] = entity;
 
   @override
   Future<Entity> getEntity(String id, {required EntityType type}) async {
@@ -41,7 +41,7 @@ class MemoryStorageBackend extends StorageBackend {
         final hasMatchingContentType =
             contentTypeIds.contains(entry.contentType.id);
         return not ? !hasMatchingContentType : hasMatchingContentType;
-      }).map((entry) => entry.metadata.id);
+      }).map((entry) => entry.meta.id);
 
   @override
   Future<void> deleteEntity(String id, {required EntityType type}) async =>

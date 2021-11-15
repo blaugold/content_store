@@ -14,7 +14,7 @@ const _docIdDelimiter = ':';
 const _idKey = 'id';
 const _entityTypeKey = 'entityType';
 const _createdAtKey = 'createdAt';
-const _updatedAtKey = 'updatedAt';
+const _lastModifiedAtKey = 'lastModifiedAt';
 const _contentTypeIdKey = 'contentTypeId';
 const _labelKey = 'label';
 const _fieldsKey = 'fields';
@@ -95,17 +95,17 @@ class CblStorageBackend extends StorageBackend {
       throw StorageBackendException(StorageBackendErrorCode.notFound);
     }
 
-    final metadata = EntityMetadata(
+    final meta = EntityMetadata(
       type: EntityType.values.byName(doc.string(_entityTypeKey)!),
       id: id,
       createdAt: doc.date(_createdAtKey)!,
     );
 
-    switch (metadata.type) {
+    switch (meta.type) {
       case EntityType.contentType:
-        return _readContentTypeFromDoc(doc, metadata);
+        return _readContentTypeFromDoc(doc, meta);
       case EntityType.entry:
-        return _readEntryFromDoc(doc, metadata);
+        return _readEntryFromDoc(doc, meta);
     }
   }
 
@@ -161,15 +161,15 @@ class CblStorageBackend extends StorageBackend {
       '${type.name}$_docIdDelimiter$id';
 
   String _entityDocIdFromEntity(Entity entity) => _entityDocId(
-        entity.metadata.id,
-        type: entity.metadata.type,
+        entity.meta.id,
+        type: entity.meta.type,
       );
 
   MutableDocument _createEntityDoc(Entity entity) {
     final doc = MutableDocument.withId(_entityDocIdFromEntity(entity));
-    doc.setString(entity.metadata.id, key: _idKey);
-    doc.setString(entity.metadata.type.name, key: _entityTypeKey);
-    doc.setDate(entity.metadata.createdAt, key: _createdAtKey);
+    doc.setString(entity.meta.id, key: _idKey);
+    doc.setString(entity.meta.type.name, key: _entityTypeKey);
+    doc.setDate(entity.meta.createdAt, key: _createdAtKey);
 
     if (entity is ContentType) {
       _writeContentTypeToDoc(doc, entity);
@@ -183,7 +183,7 @@ class CblStorageBackend extends StorageBackend {
   }
 
   void _updateEntityDoc(MutableDocument doc, Entity entity) {
-    doc.setDate(entity.metadata.updatedAt, key: _updatedAtKey);
+    doc.setDate(entity.meta.lastModifiedAt, key: _lastModifiedAtKey);
 
     if (entity is ContentType) {
       _writeContentTypeToDoc(doc, entity);
@@ -215,7 +215,7 @@ class CblStorageBackend extends StorageBackend {
 
   ContentType _readContentTypeFromDoc(
     Document doc,
-    EntityMetadata metadata,
+    EntityMetadata meta,
   ) {
     FieldSpec readFieldSpec(Dictionary dict) => FieldSpec(
           type: FieldType.values.byName(dict.string('type')!),
@@ -226,7 +226,7 @@ class CblStorageBackend extends StorageBackend {
     final fields = doc.dictionary(_fieldsKey)!;
 
     return ContentType(
-      metadata: metadata,
+      meta: meta,
       label: label,
       fields: {
         for (final name in fields)
@@ -248,12 +248,12 @@ class CblStorageBackend extends StorageBackend {
     }
   }
 
-  Entity _readEntryFromDoc(Document doc, EntityMetadata metadata) {
+  Entity _readEntryFromDoc(Document doc, EntityMetadata meta) {
     final contentTypeId = doc.string(_contentTypeIdKey)!;
     final fields = doc.dictionary(_fieldsKey)!;
 
     return Entry(
-      metadata: metadata,
+      meta: meta,
       contentType: EntityRef(
         type: EntityType.contentType,
         id: contentTypeId,

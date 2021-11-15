@@ -30,7 +30,7 @@ void main() {
       fields: {'a': FieldSpec(type: FieldType.text)},
     ));
 
-    expect(await store.getContentType(contentType.metadata.id), contentType);
+    expect(await store.getContentType(contentType.meta.id), contentType);
   });
 
   test('delete content type', () async {
@@ -38,10 +38,10 @@ void main() {
       label: 'a',
       fields: {'a': FieldSpec(type: FieldType.text)},
     ));
-    await store.deleteContentType(contentType.metadata.id);
+    await store.deleteContentType(contentType.meta.id);
 
     expect(
-      store.getContentType(contentType.metadata.id),
+      store.getContentType(contentType.meta.id),
       throwsA(isA<ContentStoreException>()),
     );
   });
@@ -52,10 +52,10 @@ void main() {
       fields: {'a': FieldSpec(type: FieldType.text)},
     ));
     final entry = await store.createEntry(
-      contentType.metadata.id,
+      contentType.meta.id,
       EntryData(fields: {'a': 'a'}),
     );
 
-    expect(await store.getEntry(entry.metadata.id), entry);
+    expect(await store.getEntry(entry.meta.id), entry);
   });
 }

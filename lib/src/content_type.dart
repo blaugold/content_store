@@ -64,31 +64,31 @@ class ContentTypeData {
 @immutable
 class ContentType extends ContentTypeData implements Entity {
   ContentType({
-    required this.metadata,
+    required this.meta,
     required String label,
     required Map<String, FieldSpec> fields,
-  })  : assert(metadata.type == EntityType.contentType),
+  })  : assert(meta.type == EntityType.contentType),
         super(label: label, fields: fields);
 
   @override
-  final EntityMetadata metadata;
+  final EntityMetadata meta;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is ContentType &&
           runtimeType == other.runtimeType &&
-          metadata == other.metadata &&
+          meta == other.meta &&
           label == other.label &&
           const DeepCollectionEquality().equals(fields, other.fields);
 
   @override
   int get hashCode =>
-      metadata.hashCode ^
+      meta.hashCode ^
       label.hashCode ^
       const DeepCollectionEquality().hash(fields);
 
   @override
   String toString() =>
-      'ContentType(metadata: $metadata, label: $label, fields: $fields)';
+      'ContentType(meta: $meta, label: $label, fields: $fields)';
 }
