@@ -38,8 +38,10 @@ class FieldSpec {
 
 @immutable
 class ContentTypeData {
-  ContentTypeData({required Map<String, FieldSpec> fields})
+  ContentTypeData({required this.label, required Map<String, FieldSpec> fields})
       : fields = UnmodifiableMapView(fields);
+
+  final String label;
 
   final Map<String, FieldSpec> fields;
 
@@ -48,10 +50,12 @@ class ContentTypeData {
       identical(this, other) ||
       other is ContentTypeData &&
           runtimeType == other.runtimeType &&
+          label == other.label &&
           const DeepCollectionEquality().equals(fields, other.fields);
 
   @override
-  int get hashCode => const DeepCollectionEquality().hash(fields);
+  int get hashCode =>
+      label.hashCode ^ const DeepCollectionEquality().hash(fields);
 
   @override
   String toString() => 'ContentTypeData(fields: $fields)';
@@ -61,9 +65,10 @@ class ContentTypeData {
 class ContentType extends ContentTypeData implements Entity {
   ContentType({
     required this.metadata,
+    required String label,
     required Map<String, FieldSpec> fields,
   })  : assert(metadata.type == EntityType.contentType),
-        super(fields: fields);
+        super(label: label, fields: fields);
 
   @override
   final EntityMetadata metadata;
@@ -74,12 +79,16 @@ class ContentType extends ContentTypeData implements Entity {
       other is ContentType &&
           runtimeType == other.runtimeType &&
           metadata == other.metadata &&
+          label == other.label &&
           const DeepCollectionEquality().equals(fields, other.fields);
 
   @override
   int get hashCode =>
-      metadata.hashCode ^ const DeepCollectionEquality().hash(fields);
+      metadata.hashCode ^
+      label.hashCode ^
+      const DeepCollectionEquality().hash(fields);
 
   @override
-  String toString() => 'ContentType(metadata: $metadata, fields: $fields)';
+  String toString() =>
+      'ContentType(metadata: $metadata, label: $label, fields: $fields)';
 }

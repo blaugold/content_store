@@ -1,3 +1,4 @@
+import '../content_store.dart';
 import 'entity.dart';
 import 'storage_backend.dart';
 
@@ -27,7 +28,20 @@ class MemoryStorageBackend extends StorageBackend {
 
   @override
   Stream<String> getEntityIdsOfType(EntityType type) =>
-      Stream.fromIterable(_entities[type]!.keys);
+      Stream.fromIterable(_entities[type]!.keys.toList(growable: false));
+
+  @override
+  Stream<String> getEntryIdsWithContentTypeIn(
+    Set<String> contentTypeIds, {
+    bool not = false,
+  }) =>
+      Stream.fromIterable(List<Entry>.from(_entities[EntityType.entry]!.values,
+              growable: false))
+          .where((entry) {
+        final hasMatchingContentType =
+            contentTypeIds.contains(entry.contentType.id);
+        return not ? !hasMatchingContentType : hasMatchingContentType;
+      }).map((entry) => entry.metadata.id);
 
   @override
   Future<void> deleteEntity(String id, {required EntityType type}) async =>

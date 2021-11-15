@@ -16,6 +16,7 @@ const _entityTypeKey = 'entityType';
 const _createdAtKey = 'createdAt';
 const _updatedAtKey = 'updatedAt';
 const _contentTypeIdKey = 'contentTypeId';
+const _labelKey = 'label';
 const _fieldsKey = 'fields';
 
 /// An implementation of [StorageBackend] that uses Couchbase Lite to persist
@@ -118,6 +119,33 @@ class CblStorageBackend extends StorageBackend {
           .map((result) => result.value(0)!);
 
   @override
+  Stream<String> getEntryIdsWithContentTypeIn(
+    Set<String> contentTypeIds, {
+    bool not = false,
+  }) =>
+      Future.sync(() async {
+        var predicate = Expression.property(_contentTypeIdKey)
+            .in_(contentTypeIds.map((e) => Expression.string(e)));
+
+        if (not) {
+          predicate = Expression.not(predicate);
+        }
+
+        final query = QueryBuilder()
+            .select(SelectResult.property(_idKey))
+            .from(DataSource.database(database))
+            .where(
+              Expression.property(_entityTypeKey)
+                  .equalTo(Expression.value(EntityType.entry.name))
+                  .and(predicate),
+            );
+        return query.execute();
+      })
+          .asStream()
+          .asyncExpand((resultSet) => resultSet.asStream())
+          .map((result) => result.value(0)!);
+
+  @override
   Future<void> deleteEntity(String id, {required EntityType type}) async {
     final doc = await database.document(_entityDocId(id, type: type));
 
@@ -173,6 +201,7 @@ class CblStorageBackend extends StorageBackend {
         };
 
     final data = {
+      _labelKey: entity.label,
       _fieldsKey: {
         for (final field in entity.fields.entries)
           field.key: writeFieldSpec(field.value),
@@ -193,10 +222,12 @@ class CblStorageBackend extends StorageBackend {
           required: dict.boolean('required'),
         );
 
+    final label = doc.string(_labelKey)!;
     final fields = doc.dictionary(_fieldsKey)!;
 
     return ContentType(
       metadata: metadata,
+      label: label,
       fields: {
         for (final name in fields)
           name: readFieldSpec(fields.dictionary(name)!),

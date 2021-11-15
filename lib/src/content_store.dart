@@ -1,8 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:synchronized/synchronized.dart';
-
 import 'content_type.dart';
 import 'entity.dart';
 import 'entry.dart';
@@ -28,14 +26,14 @@ abstract class ContentStore {
   /// Closes the store.
   Future<void> close();
 
-  /// Creates a new [ContentType] with the given [id].
-  Future<ContentType> createContentType(
-    String id,
-    ContentTypeData contentType,
-  );
+  /// Creates a new [ContentType].
+  Future<ContentType> createContentType(ContentTypeData contentType);
 
   /// Gets the [ContentType] with the given [id].
   Future<ContentType> getContentType(String id);
+
+  /// Returns all [ContentType]s.
+  Stream<ContentType> listContentTypes();
 
   /// Deletes the [ContentType] with the given [id].
   Future<void> deleteContentType(String id);
@@ -51,12 +49,6 @@ abstract class ContentStore {
 enum ContentStoreErrorCode {
   /// The requested [Entity] does not exist.
   notFound,
-
-  /// The [ContentType] with the given [id] already exists.
-  contentTypeAlreadyExists,
-
-  /// The given value cannot be used as an id.
-  invalidId,
 
   /// The [ContentType] failed validation.
   invalidContentType,
@@ -85,13 +77,16 @@ class ContentStoreException implements Exception {
 
 final _random = Random.secure();
 
-final _fieldNameRegexp = RegExp(r'^[a-zA-Z0-9_]+$');
+final _fieldNameRegexp = RegExp(r'^[a-zA-Z0-9_]{1,100}$');
 
 bool _isValidFieldName(String name) => _fieldNameRegexp.hasMatch(name);
 
-final _idRegexp = RegExp(r'^[a-zA-Z0-9_]+$');
-
-bool _isValidId(String name) => _idRegexp.hasMatch(name);
+enum _StoreState {
+  uninitialized,
+  initializing,
+  initialized,
+  closed,
+}
 
 class _ContentStoreImpl implements ContentStore {
   _ContentStoreImpl({
@@ -100,87 +95,80 @@ class _ContentStoreImpl implements ContentStore {
 
   final StorageBackend _backend;
 
-  final _lock = Lock();
-
-  final Map<String, ContentType> _contentTypes = {};
-
-  var _initialized = false;
+  var _state = _StoreState.uninitialized;
 
   @override
   Future<void> initialize() async {
-    await _backend.initialize();
-    await _loadContentTypes();
+    _assertState(_StoreState.uninitialized);
+    _state = _StoreState.initializing;
 
-    assert(() {
-      _initialized = true;
-      return true;
-    }());
+    await _backend.initialize();
+    await _runHousekeeping();
+
+    _state = _StoreState.initialized;
   }
 
   @override
   Future<void> close() async {
-    _debugAssertInitialized();
-
+    _assertState(_StoreState.initialized);
+    _state = _StoreState.closed;
     await _backend.close();
   }
 
   @override
-  Future<ContentType> createContentType(
-    String id,
-    ContentTypeData contentType,
-  ) =>
-      _lock.synchronized(() async {
-        _debugAssertInitialized();
+  Future<ContentType> createContentType(ContentTypeData contentType) async {
+    _assertIsInitialized();
 
-        if (_contentTypes.containsKey(id)) {
-          throw ContentStoreException(
-            ContentStoreErrorCode.contentTypeAlreadyExists,
-          );
-        }
+    _validateContentTypeData(contentType);
 
-        _validateId(id);
-        _validateContentTypeData(contentType);
+    final entity = ContentType(
+      metadata: EntityMetadata(
+        type: EntityType.contentType,
+        id: _createEntityId(),
+        createdAt: DateTime.now(),
+      ),
+      label: contentType.label,
+      fields: contentType.fields,
+    );
 
-        final entity = ContentType(
-          metadata: EntityMetadata(
-            type: EntityType.contentType,
-            id: id,
-            createdAt: DateTime.now(),
-          ),
-          fields: contentType.fields,
-        );
+    await _backend.saveEntity(entity);
 
-        await _backend.saveEntity(entity);
-
-        _contentTypes[id] = entity;
-
-        return entity;
-      });
+    return entity;
+  }
 
   @override
-  Future<ContentType> getContentType(String id) => _lock.synchronized(() async {
-        _debugAssertInitialized();
+  Future<ContentType> getContentType(String id) async {
+    _assertIsInitialized();
 
-        final contentType = _contentTypes[id];
-
-        if (contentType == null) {
-          throw ContentStoreException(ContentStoreErrorCode.notFound);
-        }
-
-        return contentType;
-      });
+    try {
+      final entity = await _backend.getEntity(id, type: EntityType.contentType);
+      return entity as ContentType;
+    } on StorageBackendException catch (e) {
+      if (e.code == StorageBackendErrorCode.notFound) {
+        throw ContentStoreException(ContentStoreErrorCode.notFound);
+      } else {
+        rethrow;
+      }
+    }
+  }
 
   @override
-  Future<void> deleteContentType(String id) => _lock.synchronized(() async {
-        _debugAssertInitialized();
+  Stream<ContentType> listContentTypes() {
+    _assertIsInitialized();
+    return _backend.getEntitiesOfType(EntityType.contentType).cast();
+  }
 
-        await _backend.deleteEntity(id, type: EntityType.contentType);
-        _contentTypes.remove(id);
-      });
+  @override
+  Future<void> deleteContentType(String id) async {
+    _assertIsInitialized();
+
+    await _backend.deleteEntity(id, type: EntityType.contentType);
+    await _deleteEntriesOfDeletedContentTypes();
+  }
 
   @override
   Future<Entry> createEntry(String contentTypeId, EntryData entry) async {
-    _debugAssertInitialized();
+    _assertIsInitialized();
 
     final contentType = await getContentType(contentTypeId);
 
@@ -208,7 +196,7 @@ class _ContentStoreImpl implements ContentStore {
 
   @override
   Future<Entry> getEntry(String id) async {
-    _debugAssertInitialized();
+    _assertIsInitialized();
 
     try {
       return await _backend
@@ -222,31 +210,19 @@ class _ContentStoreImpl implements ContentStore {
     }
   }
 
-  void _debugAssertInitialized() {
-    assert(_initialized, 'initialize must be called before using the store');
-  }
-
-  Future<void> _loadContentTypes() async {
-    _contentTypes.clear();
-
-    await for (final contentType
-        in _backend.getEntitiesOfType(EntityType.contentType)) {
-      _contentTypes[contentType.metadata.id] = contentType as ContentType;
+  void _assertState(_StoreState expected) {
+    if (_state != expected) {
+      throw StateError(
+        'expected store to be ${expected.name} but it was ${_state.name}',
+      );
     }
   }
+
+  void _assertIsInitialized() => _assertState(_StoreState.initialized);
 
   String _createEntityId() {
     final bytes = List.generate(16, (index) => _random.nextInt(256));
     return base64Encode(bytes).replaceAll('=', '');
-  }
-
-  void _validateId(String id) {
-    if (!_isValidId(id)) {
-      throw ContentStoreException(
-        ContentStoreErrorCode.invalidId,
-        message: 'The given value cannot be used as an id: $id',
-      );
-    }
   }
 
   void _validateFieldName(String name) {
@@ -302,5 +278,24 @@ class _ContentStoreImpl implements ContentStore {
             'Expected type ${spec.type.name} and got ${value.runtimeType}',
       );
     }
+  }
+
+  Future<void> _runHousekeeping() async {
+    await _deleteEntriesOfDeletedContentTypes();
+  }
+
+  Future<void> _deleteEntriesOfDeletedContentTypes() async {
+    final currentContentTypes =
+        await _backend.getEntityIdsOfType(EntityType.contentType).toList();
+
+    final entriesToDelete = _backend
+        .getEntryIdsWithContentTypeIn(currentContentTypes.toSet(), not: true);
+
+    // Deletes entries in parallel.
+    await entriesToDelete
+        .asyncExpand(
+          (id) => _backend.deleteEntity(id, type: EntityType.entry).asStream(),
+        )
+        .drain<void>();
   }
 }

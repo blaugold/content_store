@@ -43,12 +43,31 @@ abstract class StorageBackend {
   /// be thrown.
   Future<Entity> getEntity(String id, {required EntityType type});
 
-  /// Retries all the ids of [Entity]s of the given [type].
+  /// Retrieves all the ids of [Entity]s of the given [type].
   Stream<String> getEntityIdsOfType(EntityType type);
 
   /// Retrieves all [Entity]s of the given [type].
   Stream<Entity> getEntitiesOfType(EntityType type) =>
-      getEntityIdsOfType(type).asyncMap((id) => getEntity(id, type: type));
+      getEntityIdsOfType(type).asyncExpand((id) async* {
+        try {
+          yield await getEntity(id, type: type);
+        } on StorageBackendException catch (e) {
+          if (e.code == StorageBackendErrorCode.notFound) {
+            return;
+          }
+          rethrow;
+        }
+      });
+
+  /// Retrieves all the ids of [Entry]s whose [ContentType]'s id is in
+  /// [contentTypeIds].
+  ///
+  /// If [not] is `true` the [Entry]s must have a [ContentType] whose id is not
+  /// in [contentTypeIds].
+  Stream<String> getEntryIdsWithContentTypeIn(
+    Set<String> contentTypeIds, {
+    bool not = false,
+  });
 
   /// Deletes the [Entity] with the given [id] and [type].
   ///
